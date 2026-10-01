@@ -11,26 +11,33 @@ jobs:
       - name: Get repository
         uses: actions/checkout@v4
 
+      - name: Extract Ayran Launcher
+        run: |
+          mkdir source
+          unzip -q AyranLauncher_Original_Ozgun_Arm64.zip -d source
+
+      - name: Download JRE 17
+        uses: dawidd6/action-download-artifact@v9
+        with:
+          workflow: build.yml
+          repo: PojavLauncherTeam/android-openjdk-build-multiarch
+          branch: buildjre17-21
+          workflow_conclusion: success
+          name: jre17-pojav
+          path: source/app_pojavlauncher/src/main/assets/components/jre-new
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Extract Ayran Launcher
-        run: |
-          mkdir source
-          unzip -q AyranLauncher_Original_Ozgun_Arm64.zip -d source
-
-      - name: Find project
-        run: |
-          find source -name gradlew -type f
-
       - name: Build launcher
         run: |
           PROJECT_DIR=$(dirname "$(find source -name gradlew -type f | head -1)")
           cd "$PROJECT_DIR"
           chmod +x gradlew
+          ./gradlew :jre_lwjgl3glfw:build --no-daemon
           ./gradlew :app_pojavlauncher:assembleDebug --no-daemon
 
       - name: Upload APK
