@@ -17,14 +17,11 @@ jobs:
           unzip -q AyranLauncher_Original_Ozgun_Arm64.zip -d source
 
       - name: Download JRE 17
-        uses: dawidd6/action-download-artifact@v9
-        with:
-          workflow: build.yml
-          repo: PojavLauncherTeam/android-openjdk-build-multiarch
-          branch: buildjre17-21
-          workflow_conclusion: success
-          name: jre17-pojav
-          path: source/app_pojavlauncher/src/main/assets/components/jre-new
+        run: |
+          mkdir -p source/app_pojavlauncher/src/main/assets/components/jre-new
+          wget -O jre17.zip "https://nightly.link/PojavLauncherTeam/android-openjdk-build-multiarch/workflows/build/buildjre17-21/jre17-pojav.zip"
+          unzip -q jre17.zip -d source/app_pojavlauncher/src/main/assets/components/jre-new
+          rm jre17.zip
 
       - name: Set up Java
         uses: actions/setup-java@v4
