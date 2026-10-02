@@ -1,27 +1,87 @@
-      - name: Download Android ARM64 JRE 17
+name: Build Ayran Launcher
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout Ayran repository
+        uses: actions/checkout@v4
+
+      - name: Download Amethyst source
+        run: |
+          git clone --depth 1 --branch v3_openjdk --recursive \
+            https://github.com/AngelAuraMC/Amethyst-Android.git source
+
+      - name: Download LTW
+        run: |
+          mkdir -p source/app_pojavlauncher/libs
+          curl -fL --retry 3 \
+            -o source/app_pojavlauncher/libs/ltw-release.aar \
+            https://github.com/PojavLauncherTeam/LTW/releases/latest/download/ltw-release.aar
+
+      - name: Download JRE 17 ARM64
         run: |
           mkdir -p source/app_pojavlauncher/src/main/assets/components/jre-new
 
           curl -fL --retry 3 \
             -o jre17.tar.xz \
-            "https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/release/jre17-android-arm64.tar.xz"
+            https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/release/jre17-android-arm64.tar.xz
 
           tar -xJf jre17.tar.xz \
-            -C source/app_pojavlauncher/src/main/assets/components/jre-new \
-            --strip-components=1
+            -C source/app_pojavlauncher/src/main/assets/components/jre-new
 
           rm jre17.tar.xz
 
-      - name: Download Android ARM64 JRE 21
+      - name: Download JRE 21 ARM64
         run: |
           mkdir -p source/app_pojavlauncher/src/main/assets/components/jre-21
 
           curl -fL --retry 3 \
             -o jre21.tar.xz \
-            "https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/release/jre21-android-arm64.tar.xz"
+            https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/release/jre21-android-arm64.tar.xz
 
           tar -xJf jre21.tar.xz \
-            -C source/app_pojavlauncher/src/main/assets/components/jre-21 \
-            --strip-components=1
+            -C source/app_pojavlauncher/src/main/assets/components/jre-21
 
           rm jre21.tar.xz
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Generate language list
+        working-directory: source
+        run: |
+          chmod +x scripts/languagelist_updater.sh
+          ./scripts/languagelist_updater.sh
+
+      - name: Build LWJGL
+        working-directory: source
+        run: |
+          ./gradlew :jre_lwjgl3glfw:build --no-daemon
+
+      - name: Build Ayran Launcher
+        working-directory: source
+        run: |
+          ./gradlew :app_pojavlauncher:assembleDebug --no-daemon
+
+      - name: Rename APK
+        run: |
+          mkdir -p output
+          cp source/app_pojavlauncher/build/outputs/apk/debug/*.apk \
+             output/Ayran-Launcher-debug.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: AyranLauncher-APK
+          path: output/Ayran-Launcher-debug.apk
