@@ -1,23 +1,42 @@
-      - name: Download Android ARM64 JRE 17 and 21
+name: Build Ayran Launcher
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract Ayran Launcher
+        run: |
+          mkdir -p source
+          unzip -q AyranLauncher_Original_Ozgun_Arm64.zip -d source
+
+      - name: Download Android ARM64 JRE 17
         run: |
           mkdir -p source/app_pojavlauncher/src/main/assets/components/jre-new
-          mkdir -p source/app_pojavlauncher/src/main/assets/components/jre-21
-
           wget -O jre17.tar.xz \
             "https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/release/jre17-android-arm64.tar.xz"
-
-          wget -O jre21.tar.xz \
-            "https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/release/jre21-android-arm64.tar.xz"
-
           tar -xJf jre17.tar.xz \
             -C source/app_pojavlauncher/src/main/assets/components/jre-new \
             --strip-components=1
+          rm jre17.tar.xz
 
+      - name: Download Android ARM64 JRE 21
+        run: |
+          mkdir -p source/app_pojavlauncher/src/main/assets/components/jre-21
+          wget -O jre21.tar.xz \
+            "https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/release/jre21-android-arm64.tar.xz"
           tar -xJf jre21.tar.xz \
             -C source/app_pojavlauncher/src/main/assets/components/jre-21 \
             --strip-components=1
+          rm jre21.tar.xz
 
-          rm jre17.tar.xz jre21.tar.xz      - name: Set up Java 21
+      - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
