@@ -1,42 +1,23 @@
-name: Build Ayran Launcher
-
-on:
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-22.04
-
-    steps:
-      - name: Get repository
-        uses: actions/checkout@v4
-
-      - name: Extract Ayran Launcher
+      - name: Download Android ARM64 JRE 17 and 21
         run: |
-          mkdir source
-          unzip -q AyranLauncher_Original_Ozgun_Arm64.zip -d source
+          mkdir -p source/app_pojavlauncher/src/main/assets/components/jre-new
+          mkdir -p source/app_pojavlauncher/src/main/assets/components/jre-21
 
-      - name: Get JRE 17 and 21
-        uses: dawidd6/action-download-artifact@v9
-        with:
-          workflow: build.yml
-          repo: AngelAuraMC/angelauramc-openjdk-build
-          branch: buildjre17-21
-          workflow_conclusion: completed
-          name: jre17-pojav
-          path: source/app_pojavlauncher/src/main/assets/components/jre-new
+          wget -O jre17.tar.xz \
+            "https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/release/jre17-android-arm64.tar.xz"
 
-      - name: Get JRE 21
-        uses: dawidd6/action-download-artifact@v9
-        with:
-          workflow: build.yml
-          repo: AngelAuraMC/angelauramc-openjdk-build
-          branch: buildjre17-21
-          workflow_conclusion: completed
-          name: jre21-pojav
-          path: source/app_pojavlauncher/src/main/assets/components/jre-21
+          wget -O jre21.tar.xz \
+            "https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/release/jre21-android-arm64.tar.xz"
 
-      - name: Set up Java 21
+          tar -xJf jre17.tar.xz \
+            -C source/app_pojavlauncher/src/main/assets/components/jre-new \
+            --strip-components=1
+
+          tar -xJf jre21.tar.xz \
+            -C source/app_pojavlauncher/src/main/assets/components/jre-21 \
+            --strip-components=1
+
+          rm jre17.tar.xz jre21.tar.xz      - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
