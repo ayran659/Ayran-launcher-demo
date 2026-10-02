@@ -3,17 +3,26 @@ name: Build Ayran Launcher
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-24.04
 
     steps:
 
-      - name: Checkout repository
+      # =========================================================
+      # 1 - Ayran Launcher reposunu al
+      # =========================================================
+      - name: Checkout Ayran repository
         uses: actions/checkout@v4
 
-      # AMETHYST KAYNAĞINI SUBMODULE'LAR OLMADAN İNDİR
-      - name: Clone Amethyst
+      # =========================================================
+      # 2 - Amethyst kaynak kodunu indir
+      # SSH SUBMODULE HATASINI ENGELLER
+      # =========================================================
+      - name: Download Amethyst source
         run: |
           git clone \
             --depth 1 \
@@ -23,120 +32,205 @@ jobs:
 
           cd source
 
-          # SSH submodule adresini HTTPS'e çevir
-          sed -i \
-            's#git@github.com:alexytomi/androidnsbypass.git#https://github.com/alexytomi/androidnsbypass.git#g' \
-            .gitmodules
-
-          # Diğer olası SSH GitHub adreslerini de HTTPS yap
+          # SSH GitHub adreslerini HTTPS'e çevir
           sed -i \
             's#git@github.com:#https://github.com/#g' \
+            .gitmodules
+
+          sed -i \
+            's#ssh://git@github.com/#https://github.com/#g' \
             .gitmodules
 
           git submodule sync --recursive
 
           git submodule update --init --depth 1
 
-      # LTW
+      # =========================================================
+      # 3 - LTW
+      # =========================================================
       - name: Download LTW
         run: |
           mkdir -p source/app_pojavlauncher/libs
 
           curl -fL --retry 5 --retry-delay 2 \
-            -o source/app_pojavlauncher/libs/ltw-release.aar \
-            https://github.com/PojavLauncherTeam/LTW/releases/latest/download/ltw-release.aar
+            https://github.com/PojavLauncherTeam/LTW/releases/latest/download/ltw-release.aar \
+            -o source/app_pojavlauncher/libs/ltw-release.aar
 
-      # JRE 17
+          test -s source/app_pojavlauncher/libs/ltw-release.aar
+
+      # =========================================================
+      # 4 - JRE indirme yardımcı fonksiyonu
+      # GitHub API gerçek asset URL'sini buluyor.
+      # =========================================================
+      - name: Prepare JRE downloader
+        run: |
+          cat > /tmp/download_jre.sh <<'SCRIPT'
+          #!/bin/bash
+          set -e
+
+          REPO="$1"
+          TAG="$2"
+          ASSET="$3"
+          DEST="$4"
+
+          mkdir -p "$DEST"
+
+          echo "JRE aranıyor:"
+          echo "$REPO / $TAG / $ASSET"
+
+          API="https://api.github.com/repos/${REPO}/releases/tags/${TAG}"
+
+          URL=$(curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            "$API" \
+            | jq -r --arg ASSET "$ASSET" \
+              '.assets[] | select(.name == $ASSET) | .browser_download_url' \
+            | head -n 1)
+
+          if [ -z "$URL" ] || [ "$URL" = "null" ]; then
+            echo "JRE ASSET BULUNAMADI!"
+            echo "Repository: $REPO"
+            echo "Tag: $TAG"
+            echo "Asset: $ASSET"
+            exit 1
+          fi
+
+          echo "Bulunan URL:"
+          echo "$URL"
+
+          curl -fL --retry 5 --retry-delay 3 \
+            "$URL" \
+            -o /tmp/jre.tar.xz
+
+          test -s /tmp/jre.tar.xz
+
+          tar -xJf /tmp/jre.tar.xz -C "$DEST"
+
+          rm -f /tmp/jre.tar.xz
+
+          echo "JRE tamamlandı."
+          SCRIPT
+
+          chmod +x /tmp/download_jre.sh
+
+      # =========================================================
+      # 5 - JRE 8
+      # Eski Minecraft sürümleri için
+      # =========================================================
+      - name: Download JRE 8 ARM64
+        run: |
+          /tmp/download_jre.sh \
+            AngelAuraMC/angelauramc-openjdk-build \
+            download_jre8 \
+            jre8-android-arm64.tar.xz \
+            source/app_pojavlauncher/src/main/assets/components/jre
+
+      # =========================================================
+      # 6 - JRE 17
+      # =========================================================
       - name: Download JRE 17 ARM64
         run: |
-          mkdir -p source/app_pojavlauncher/src/main/assets/components/jre-new
+          /tmp/download_jre.sh \
+            AngelAuraMC/angelauramc-openjdk-build \
+            download_jre17 \
+            jre17-android-arm64.tar.xz \
+            source/app_pojavlauncher/src/main/assets/components/jre-new
 
-          curl -fL --retry 5 --retry-delay 2 \
-            -o jre17.tar.xz \
-            https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/release/jre17-android-arm64.tar.xz
-
-          tar -xJf jre17.tar.xz \
-            -C source/app_pojavlauncher/src/main/assets/components/jre-new
-
-          rm -f jre17.tar.xz
-
-      # JRE 21
+      # =========================================================
+      # 7 - JRE 21
+      # =========================================================
       - name: Download JRE 21 ARM64
         run: |
-          mkdir -p source/app_pojavlauncher/src/main/assets/components/jre-21
+          /tmp/download_jre.sh \
+            AngelAuraMC/angelauramc-openjdk-build \
+            download_jre21 \
+            jre21-android-arm64.tar.xz \
+            source/app_pojavlauncher/src/main/assets/components/jre-21
 
-          curl -fL --retry 5 --retry-delay 2 \
-            -o jre21.tar.xz \
-            https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/release/jre21-android-arm64.tar.xz
-
-          tar -xJf jre21.tar.xz \
-            -C source/app_pojavlauncher/src/main/assets/components/jre-21
-
-          rm -f jre21.tar.xz
-
-      # JRE 25
+      # =========================================================
+      # 8 - JRE 25
+      # =========================================================
       - name: Download JRE 25 ARM64
         run: |
-          mkdir -p source/app_pojavlauncher/src/main/assets/components/jre-25
+          /tmp/download_jre.sh \
+            AngelAuraMC/angelauramc-openjdk-build \
+            download_jre25 \
+            jre25-android-arm64.tar.xz \
+            source/app_pojavlauncher/src/main/assets/components/jre-25
 
-          curl -fL --retry 5 --retry-delay 2 \
-            -o jre25.tar.xz \
-            https://github.com/AngelAuraMC/angelauramc-openjdk-build/releases/download/release/jre25-android-arm64.tar.xz
-
-          tar -xJf jre25.tar.xz \
-            -C source/app_pojavlauncher/src/main/assets/components/jre-25
-
-          rm -f jre25.tar.xz
-
-      # Java 21
-      - name: Setup Java
+      # =========================================================
+      # 9 - Java 21
+      # =========================================================
+      - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '21'
 
-      # Gradle
+      # =========================================================
+      # 10 - Gradle
+      # =========================================================
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11'
+          validate-wrappers: false
 
-      # Dil listesi
+      # =========================================================
+      # 11 - Language list
+      # =========================================================
       - name: Generate language list
         working-directory: source
         run: |
           chmod +x scripts/languagelist_updater.sh
-          ./scripts/languagelist_updater.sh
+          bash scripts/languagelist_updater.sh
 
-      # LWJGL
+      # =========================================================
+      # 12 - LWJGL
+      # =========================================================
       - name: Build LWJGL
         working-directory: source
         run: |
           chmod +x gradlew
           ./gradlew :jre_lwjgl3glfw:build --no-daemon
 
-      # Launcher
-      - name: Build Ayran Launcher
+      # =========================================================
+      # 13 - Launcher APK
+      # =========================================================
+      - name: Build Ayran Launcher APK
         working-directory: source
         run: |
           ./gradlew :app_pojavlauncher:assembleDebug --no-daemon
 
-      # APK
+      # =========================================================
+      # 14 - APK'yı hazırla
+      # =========================================================
       - name: Prepare APK
         run: |
           mkdir -p output
 
-          APK=$(find source/app_pojavlauncher/build/outputs/apk/debug \
-            -type f -name "*.apk" | head -n 1)
+          APK=$(find \
+            source/app_pojavlauncher/build/outputs/apk/debug \
+            -type f \
+            -name "*.apk" \
+            | head -n 1)
 
           if [ -z "$APK" ]; then
-            echo "APK BULUNAMADI!"
+            echo "HATA: APK bulunamadı!"
+            find source/app_pojavlauncher/build/outputs -type f 2>/dev/null || true
             exit 1
           fi
+
+          echo "APK bulundu:"
+          echo "$APK"
 
           cp "$APK" output/Ayran-Launcher-debug.apk
 
           ls -lh output/Ayran-Launcher-debug.apk
 
-      # APK'yı yükle
+      # =========================================================
+      # 15 - APK'yı Actions'a yükle
+      # =========================================================
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
